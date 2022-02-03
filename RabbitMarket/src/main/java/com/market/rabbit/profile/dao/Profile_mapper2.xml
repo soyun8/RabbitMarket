@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC 
+	"-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd"
+ >
+ 
+ <!-- 누가 이 XML을 사용할까?(mybatis) / 누구와 연결을? (해당 DAO) -->
+ <mapper namespace="com.market.rabbit.profile.dao.ProfileDAO2">
+ 	<select id="callMemberInfo" resultType="member">
+ 		SELECT member_id, name, phone, email, to_char(birth_date, 'yyyy-mm-dd') as birth_date, address, reg_date, location 
+ 		FROM member WHERE member_id = #{param1}
+ 	</select>
+ 	
+ 	<select id="callMemberProfile" resultType="profileFile">
+ 		SELECT * FROM profilefile WHERE member_id = #{param1}
+ 	</select>
+
+	<update id="updateProfile" parameterType="profileFile">
+		UPDATE profilefile SET oriFileName=#{oriFileName}, newFileName=#{newFileName} WHERE member_id=#{member_id}
+	</update>
+	
+	<update id="updateMember" parameterType="member">
+		UPDATE member 
+		SET name=#{name}, birth_date=#{birth_date}, phone=#{phone}, email=#{email}, address=#{address}, location=#{location}
+		WHERE member_id=#{member_id}
+	</update>
+	
+	<select id="callOriFileName" resultType="String" parameterType="String">
+		SELECT newFileName FROM profilefile WHERE member_id=#{param1}
+	</select>
+	
+	<select id="getPw" resultType="String">
+		SELECT pw FROM member WHERE member_id=#{param1}
+	</select>
+	
+	<update id="updatePw">
+		UPDATE member SET pw=#{param2} WHERE member_id=#{param1}
+	</update>
+	
+	<update id="delMemberWithdraw">
+		UPDATE member SET WITHDRAW=1 WHERE member_id=#{param1}
+	</update>
+	
+	<select id="callAlarmList" resultType="alarm">
+		SELECT *
+		FROM (
+		    SELECT alarm_idx, alarm_content, reg_date, ischeck, member_id, code_num, ROW_NUMBER() OVER(ORDER BY reg_date DESC) AS rnum
+		    FROM alarm 
+		    WHERE member_id=#{param1}
+		    )
+		WHERE rnum BETWEEN #{param2} AND #{param3}
+	</select>
+	
+	<delete id="delAlarm">
+		DELETE FROM alarm WHERE alarm_idx=#{param1}
+	</delete>
+	
+	<select id="callBlockList" resultMap="callBlockListAfterJoin">
+		SELECT block_idx, target_id, member_id
+		FROM ( 
+		    SELECT b.block_idx, b.target_id, b.member_id, ROW_NUMBER() OVER(ORDER BY b.block_idx) AS rnum 
+		    FROM block b, member m
+		    WHERE b.member_id = m.member_id AND m.member_id=#{param1}
+		) WHERE rnum BETWEEN #{param2} AND #{param3}
+	</select>
+	
+	<resultMap type="block" id="callBlockListAfterJoin">
+		<id column="block_idx" property="block_idx"/>
+		<result column="target_id" property="target_id"/>
+		<result column="member_id" property="member_id"/>
+		<association property="profilefileDto" javaType="profilefile">
+			<result column="newFileName" property="newFileName"/>
+		</association>
+	</resultMap>
+	
+	<delete id="delBlock">
+		DELETE FROM block WHERE block_idx=#{param1}
+	</delete>
+	
+	<select id="callSaleReportList" resultMap="callSaleReportListAfterJoin">
+		SELECT *
+		FROM (
+		    SELECT r.report_idx, r.target_idx, r.reporter, r.target, r.report_reason, r.report_state, r.reg_date, r.complete_date, ROW_NUMBER() OVER(ORDER BY r.reg_date DESC) AS rnum, s.sale_content
+		    FROM report r, sale s
+		    WHERE r.target_idx = s.product_idx AND r.code_num = '1001' AND r.reporter = #{param1}
+		    )
+		WHERE rnum BETWEEN #{param2} AND #{param3}
+	</select>
+	<resultMap type="report" id="callSaleReportListAfterJoin">
+		<id column="report_idx" property="report_idx"/>
+		<result column="target_idx" property="target_idx"/>
+		<result column="reporter" property="reporter"/>
+		<result column="target" property="target"/>
+		<result column="report_reason" property="report_reason"/>
+		<result column="report_state" property="report_state"/>
+		<result column="reg_date" property="reg_date"/>
+		<result column="complete_date" property="complete_date"/>
+		<association property="saleDto" javaType="sale">
+			<result column="sale_content" property="sale_content"/>
+		</association>
+	</resultMap>
+	
+	<select id="callCommentReportList" resultMap="callCommentReportListAfterJoin">
+		SELECT *
+		FROM (
+		    SELECT r.report_idx, r.target_idx, r.reporter, r.target, r.report_reason, r.report_state, r.reg_date, r.complete_date, ROW_NUMBER() OVER(ORDER BY r.reg_date DESC) AS rnum, c.comment_content
+		    FROM report r, comments c
+		    WHERE r.target_idx = c.comment_idx AND r.code_num = '1002' AND r.reporter = #{param1}
+		    )
+		WHERE rnum BETWEEN #{param2} AND #{param3}
+	</select>
+	<resultMap type="report" id="callCommentReportListAfterJoin">
+		<id column="report_idx" property="report_idx"/>
+		<result column="target_idx" property="target_idx"/>
+		<result column="reporter" property="reporter"/>
+		<result column="target" property="target"/>
+		<result column="report_reason" property="report_reason"/>
+		<result column="report_state" property="report_state"/>
+		<result column="reg_date" property="reg_date"/>
+		<result column="complete_date" property="complete_date"/>
+		<association property="commentsDTO" javaType="comments">
+			<result column="comment_content" property="comment_content"/>
+		</association>
+	</resultMap>
+	
+	<select id="callCocommentReportList" resultMap="callCocommentReportListAfterJoin">
+		SELECT *
+		FROM (
+		    SELECT r.report_idx, r.target_idx, r.reporter, r.target, r.report_reason, r.report_state, r.reg_date, r.complete_date, ROW_NUMBER() OVER(ORDER BY r.reg_date DESC) AS rnum, c.cocomment_content
+		    FROM report r, cocomment c
+		    WHERE r.target_idx = c.cocomment_idx AND r.code_num = '1003' AND r.reporter = #{param1}
+		    )
+		WHERE rnum BETWEEN #{param2} AND #{param3}
+	</select>
+	<resultMap type="report" id="callCocommentReportListAfterJoin">
+		<id column="report_idx" property="report_idx"/>
+		<result column="target_idx" property="target_idx"/>
+		<result column="reporter" property="reporter"/>
+		<result column="target" property="target"/>
+		<result column="report_reason" property="report_reason"/>
+		<result column="report_state" property="report_state"/>
+		<result column="reg_date" property="reg_date"/>
+		<result column="complete_date" property="complete_date"/>
+		<association property="coCommentDTO" javaType="coComent">
+			<result column="cocomment_content" property="cocomment_content"/>
+		</association>
+	</resultMap>
+	
+	<select id="callQuestionList" resultType="question">
+		SELECT *
+		FROM (
+		    SELECT question_idx, subject, content, reg_date, state, answer, ROW_NUMBER() OVER(ORDER BY reg_date DESC) AS rnum, question_category
+		    FROM question
+		    WHERE member_id=#{param1}
+		    )
+		WHERE rnum BETWEEN #{param2} AND #{param3}
+	</select>
+	
+	<select id="countQuestionList" resultType="INTEGER">
+		SELECT count(question_idx) FROM question WHERE member_id=#{param1}
+	</select>
+	
+	<select id="callKeywords" resultType="keyword">
+		SELECT * FROM keyword WHERE member_id=#{param1} ORDER BY keyword_idx
+	</select>
+	
+	<delete id="delKeyword">
+		DELETE FROM keyword WHERE member_id=#{param1} AND keyword_idx=#{param2}
+	</delete>
+	
+	<insert id="writeKeyword">
+		INSERT INTO keyword (keyword_idx, member_id, keyword) VALUES (seq_keyword.nextval, #{param1}, #{param2})
+	</insert>
+	
+	<select id="countAlarmList" resultType="INTEGER">
+		SELECT count(alarm_idx) FROM alarm WHERE member_id=#{param1}
+	</select>
+	
+	<select id="countBlockList" resultType="INTEGER">
+		SELECT count(block_idx) FROM block WHERE member_id=#{param1}
+	</select>
+	
+	<select id="countSaleReportList" resultType="INTEGER">
+		SELECT count(report_idx) FROM report WHERE REPORTER=#{param1} AND code_num=1001
+	</select>
+	
+	<select id="countCommentReportList" resultType="INTEGER">
+		SELECT count(report_idx) FROM report WHERE REPORTER=#{param1} AND code_num=1002
+	</select>
+	
+	<select id="countCocommentReportList" resultType="INTEGER">
+		SELECT count(report_idx) FROM report WHERE REPORTER=#{param1} AND code_num=1003
+	</select>
+ 	
+ 	<select id="countMyBuyList" resultType="INTEGER" parameterType="hashmap">
+		SELECT count(trade_idx) FROM trading
+		<where>
+			<if test="selectedState.equals('전체')">
+				buyer_id=#{loginId}
+			</if>
+			<if test="!selectedState.equals('전체')">
+				buyer_id=#{loginId} AND trade_state=#{selectedState}
+			</if>
+		</where>
+	</select>
+	
+	<select id="callMyBuyList" resultMap="callMyBuyListAfterJoin" parameterType="hashmap">
+		<if test="selectedState.equals('전체')">
+			SELECT *
+			FROM (
+			    SELECT ROW_NUMBER() OVER(ORDER BY trade_idx desc) AS rnum, trade_idx, product_idx, tracking_number, package_company, seller_id, buyer_id, trade_type, trade_state,cancel_reason, seller_manner,buyer_manner, trade_time, trade_start_date, trade_end_date, file_idx,rnumFile, newfilename, sale_subject
+			    FROM (
+			        SELECT  t.trade_idx, t.product_idx, t.tracking_number, t.package_company, t.seller_id, t.buyer_id, t.trade_type, t.trade_state, t.cancel_reason, t.seller_manner, t.buyer_manner, t.trade_time, t.trade_start_date, t.trade_end_date, sf.file_idx, RANK() OVER (PARTITION BY sf.product_idx ORDER BY sf.file_idx) AS rnumFile, sf.newfilename, s.sale_subject
+			        FROM trading t, sale_file sf, sale s
+			        WHERE t.product_idx = sf.product_idx AND t.product_idx = s.product_idx
+			        )
+			    WHERE rnumFile=1 AND buyer_id=#{loginId}
+			    )
+			WHERE rnum between #{start} and #{end}
+		</if>
+		<if test="!selectedState.equals('전체')">
+			SELECT *
+			FROM (
+			    SELECT ROW_NUMBER() OVER(ORDER BY trade_idx desc) AS rnum, trade_idx, product_idx, tracking_number, package_company, seller_id, buyer_id, trade_type, trade_state,cancel_reason, seller_manner,buyer_manner, trade_time, trade_start_date, trade_end_date, file_idx,rnumFile, newfilename, sale_subject
+			    FROM (
+			        SELECT  t.trade_idx, t.product_idx, t.tracking_number, t.package_company, t.seller_id, t.buyer_id, t.trade_type, t.trade_state, t.cancel_reason, t.seller_manner, t.buyer_manner, t.trade_time, t.trade_start_date, t.trade_end_date, sf.file_idx, RANK() OVER (PARTITION BY sf.product_idx ORDER BY sf.file_idx) AS rnumFile, sf.newfilename, s.sale_subject
+			        FROM trading t, sale_file sf, sale s
+			        WHERE t.product_idx = sf.product_idx AND t.product_idx = s.product_idx
+			        )
+			    WHERE rnumFile=1 AND buyer_id=#{loginId} AND trade_state=#{selectedState}
+			    )
+			WHERE rnum between #{start} and #{end}
+		</if>
+	</select>
+	
+	<resultMap type="trading" id="callMyBuyListAfterJoin">
+		<id column="trade_idx" property="trade_idx"/>
+		<result column="product_idx" property="product_idx"/>
+		<result column="tracking_number" property="tracking_number"/>
+		<result column="package_company" property="package_company"/>
+		<result column="seller_id" property="seller_id"/>
+		<result column="buyer_id" property="buyer_id"/>
+		<result column="trade_type" property="trade_type"/>
+		<result column="trade_state" property="trade_state"/>
+		<result column="cancel_reason" property="cancel_reason"/>
+		<result column="seller_manner" property="seller_manner"/>
+		<result column="buyer_manner" property="buyer_manner"/>
+		<result column="trade_time" property="trade_time"/>
+		<result column="trade_start_date" property="trade_start_date"/>
+		<result column="trade_end_date" property="trade_end_date"/>
+		<association property="saleDto" javaType="sale">
+			<result column="sale_subject" property="sale_subject"/>
+		</association>
+		<association property="saleFileDto" javaType="saleFile">
+			<result column="file_idx" property="file_idx"/>
+			<result column="newFileName" property="newFileName"/>
+		</association>
+	</resultMap>
+	
+	<update id="setCancelReason">
+ 		UPDATE trading SET cancel_reason=#{param2}, trade_end_date=#{param3}, trade_state='거래취소'  WHERE trade_idx=#{param1}
+ 	</update>
+ 	
+ 	<update id="setCodeNum">
+ 		UPDATE sale SET code_num=3001 WHERE product_idx=#{param}
+ 	</update>
+ 	
+ 	<update id="setTradeEnd">
+ 		UPDATE trading SET trade_state='거래완료' WHERE trade_idx=#{param2}
+ 	</update>
+ 	
+ 	<insert id="writeReview">
+ 		INSERT INTO review (review_idx, review_content, member_id, write_id) VALUES (seq_review.nextval, #{param3}, #{param1}, #{param2})
+ 	</insert>
+ </mapper>

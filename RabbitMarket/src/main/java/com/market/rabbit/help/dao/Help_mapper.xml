@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC 
+	"-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd"
+ >
+ 
+ <!-- 누가 이 XML을 사용할까?(mybatis) / 누구와 연결을? (해당 DAO) -->
+ <mapper namespace="com.market.rabbit.help.dao.HelpDAO">
+ 	
+ 	<!-- 공지사항 -->
+ 	
+ 	<!-- 공지사항 리스트 : 전체수 / 페이징리스트-->
+	<select id="allCountNotice" resultType="int">
+		SELECT COUNT(*) AS cnt FROM notice
+	</select>
+	<select id="noticeList" resultType="notice">
+		SELECT notice_idx, admin_id, subject, content,reg_date, rnum 
+		    FROM (SELECT notice_idx, admin_id, subject, content,reg_date, ROW_NUMBER() 
+		                OVER(ORDER BY notice_idx DESC) AS rnum FROM notice)
+		WHERE rnum BETWEEN #{param1} AND #{param2}
+	</select>
+	
+	<!-- 공지사항 상세보기 -->
+	<select id="detailNotice" resultType="notice">
+		SELECT notice_idx, admin_id, subject, content,reg_date FROM notice 
+			WHERE notice_idx=#{param1}
+	</select>
+	
+ 	<!-- 공지사항 등록 -->
+	<insert id="writeNotice" 
+		useGeneratedKeys="true"
+		keyProperty="notice_idx"
+		keyColumn="notice_idx"
+		parameterType="notice">
+	INSERT INTO notice (notice_idx, admin_id, subject, content)
+    	VALUES (seq_notice.NEXTVAL, #{admin_id},#{subject},#{content})
+	</insert>
+ 	
+ 	<!-- 공지사항 수정 -->
+ 	<update id="updateNotice" parameterType="notice">
+ 		UPDATE notice 
+			<set>
+				<if test="!subject.equals('')">subject=#{subject}, </if>
+				<if test="!content.equals('')">content=#{content} </if>
+			</set>
+ 			WHERE notice_idx=#{notice_idx}
+ 	</update>
+ 	
+ 	<!-- 공지사항 삭제 -->
+ 	<delete id="delNotice">
+ 		DELETE FROM notice WHERE notice_idx=#{param1}
+ 	</delete>
+ 	
+ 	<!-- 자주묻는질문 -->
+ 	
+ 	<!-- 자주묻는질문 리스트 : 전체수 / 페이징리스트-->
+	<select id="allCountFaq" resultType="int">
+		SELECT COUNT(*) AS cnt FROM frequently_question
+	</select>
+	<select id="faqList" resultType="frequentlyQuestion">
+		SELECT frequently_idx,fq_answer,fq_question, admin_id, reg_date, rnum 
+		    FROM (SELECT frequently_idx,fq_answer, fq_question, admin_id, reg_date, ROW_NUMBER() 
+		                OVER(ORDER BY frequently_idx ASC) AS rnum FROM frequently_question)
+		WHERE rnum BETWEEN #{param1} AND #{param2}
+	</select>
+	
+	<!-- 자주묻는질문 상세보기 -->
+	<select id="detailFaq" resultType="frequentlyQuestion">
+		SELECT frequently_idx, fq_question, fq_answer, admin_id, reg_date
+		    FROM frequently_question WHERE frequently_idx=#{param1}
+	</select>
+	
+ 	<!-- 자주묻는질문 등록 -->
+	<insert id="writeFaq" 
+		useGeneratedKeys="true"
+		keyProperty="frequently_idx"
+		keyColumn="frequently_idx"
+		parameterType="frequentlyQuestion">
+	INSERT INTO frequently_question (frequently_idx, fq_question, fq_answer, admin_id)
+	    VALUES (seq_frequently_question.NEXTVAL, #{fq_question}, #{fq_answer}, #{admin_id})
+	</insert>
+	
+ 	<!-- 자주묻는질문 수정 -->
+ 	<update id="updateFaq" parameterType="frequentlyQuestion">
+ 		UPDATE frequently_question 
+			<set>
+				<if test="!fq_question.equals('')">fq_question=#{fq_question}, </if>
+				<if test="!fq_answer.equals('')">fq_answer=#{fq_answer} </if>
+			</set>
+ 			WHERE frequently_idx=#{frequently_idx}
+ 	</update>
+ 	
+ 	<!-- 자주묻는질문 삭제 -->
+ 	<delete id="delFaq">
+ 		DELETE FROM frequently_question WHERE frequently_idx=#{param1}
+ 	</delete>
+	
+	<!-- 1:1문의 -->
+	
+	<!-- 1:1문의 리스트 -->
+	<select id="allCountQ" resultType="int">
+		SELECT COUNT(*) AS cnt FROM question
+	</select>
+	<select id="QList" resultType="question">
+		SELECT question_idx, q_category_name, subject, member_id, reg_date, state, rnum 
+		    FROM 
+		        (	SELECT q.question_idx, qc.q_category_name, q.subject, q.member_id, q.reg_date, q.state, 
+		                ROW_NUMBER() OVER(ORDER BY q.question_idx DESC) AS rnum 
+		            FROM question q, question_category qc
+		            WHERE q.question_category=qc.q_category_idx AND q.isdelete = 0
+		        )
+		WHERE rnum BETWEEN #{param1} AND #{param2}
+	</select>
+	
+	<!-- 1:1문의 상세보기 -->
+	<select id="detailQ" resultType="question">
+		SELECT q.question_idx, qc.q_category_name, q.subject, q.member_id, q.reg_date, q.state, q.content,q.answer ,q.answer_date, q.admin_id
+		    FROM question q, question_category qc 
+		    WHERE q.question_category=qc.q_category_idx AND q.question_idx=#{param1}
+	</select>
+	
+	<!-- 1:1문의 답변하기 -->
+	<update id="answerQ" parameterType="question">
+		UPDATE question SET answer=#{answer}, admin_id=#{admin_id}, state=1, answer_date=to_date(#{answer_date},'yyyy/mm/dd hh24:mi:ss')
+    		WHERE question_idx=#{question_idx}
+	</update>
+	
+	<!--1대1 문의글 등록 -->
+	<insert id="helpwrite" parameterType="question">
+		INSERT INTO question(question_idx,subject,member_id,question_category,isPw,content)
+		VALUES(seq_question.NEXTVAL,#{subject},#{member_id},#{question_category},#{isPw},#{content})
+	</insert>
+	
+	 <!-- 1대1 문의글 삭제 -->
+ 	<delete id="helpDelete" parameterType="int">
+ 		DELETE FROM question WHERE question_idx=#{question_idx}
+ 	</delete>
+	
+	<!-- 1대1문의글 수정 
+ 	<update id="quupdate" parameterType="question">
+ 		UPDATE question SET 
+			
+ 			WHERE question_idx=#{question_idx}
+ 	</update>-->
+ 	
+ 	
+ 	
+ </mapper>

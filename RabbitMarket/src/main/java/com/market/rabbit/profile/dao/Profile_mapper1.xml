@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC 
+	"-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd"
+ >
+ 
+ <!-- 누가 이 XML을 사용할까?(mybatis) / 누구와 연결을? (해당 DAO) -->
+ <mapper namespace="com.market.rabbit.profile.dao.ProfileDAO1">
+ 
+ 	<!-- 위시리스트 -->
+	<select id="wishlist" resultType="wish">
+ 		SELECT wish_idx,member_id,product_idx FROM WISH WHERE isdelete=0 ORDER BY wish_idx DESC
+ 	</select>
+ 	
+<!--  	<select id="sale" resultType="sale">
+ 		SELECT sale_subject,reg_date FROM sale ORDER BY reg_date DESC
+ 	</select>
+ 	
+ 	<select id="saleFile" resultType="saleFile">
+ 		SELECT * FROM sale_file WHERE newFileName=#{param1}
+ 	</select> -->
+ 	
+ 	<!-- 위시리스트 삭제 -->
+ 	<delete id="wishdelete">
+ 		DELETE FROM WISH WHERE wish_idx=#{param1}
+ 	</delete>
+ 	
+ 	<!-- 회원프로필 -->
+ 	<select id="profile" resultType="member">
+ 		SELECT member_id,address,manner_percent FROM MEMBER WHERE member_id=#{param1}
+ 	</select>
+ 	
+ 	<!-- 프로필사진 -->
+ 	<select id="fileList" resultType="profileFile">
+ 		SELECT * FROM PROFILEFILE WHERE member_id=#{param1}
+ 	</select>
+ 	
+	<!-- 프로필 - 후기리스트 -->
+	<select id="callProfileReviewList" resultType="review">
+		SELECT *
+		FROM (
+		    SELECT review_idx, review_content, reg_date, member_id, write_id, ROW_NUMBER() OVER(ORDER BY reg_date DESC) AS rnum
+		    FROM review
+		    WHERE member_id=#{param1}
+		    )
+		WHERE rnum BETWEEN #{param2} AND #{param3}
+	</select>
+ 	
+ 	<!-- 프로필 -> 판매내역리스트 -->
+ 	<select id="callProfileSaleList" resultMap="callProfileSaleListResult">
+ 		SELECT *
+		FROM (
+		    select ROW_NUMBER() OVER(ORDER BY file_idx desc) AS rnum, sale_subject, price, seller_id, product_idx, newfilename, file_idx, rnumFile,code_num,isdelete,isblind
+		    FROM (
+		        SELECT  s.sale_subject, s.price, s.seller_id, s.product_idx, sf.file_idx, RANK() OVER (PARTITION BY sf.product_idx ORDER BY sf.file_idx) rnumFile, sf.newfilename, s.code_num, s.isdelete, s.isblind
+		        FROM sale s, sale_file sf
+		        WHERE s.product_idx = sf.product_idx
+		        )
+		    WHERE rnumFile=1 AND seller_id=#{param1} AND code_num=3001 AND isdelete=0 AND isblind=0
+		    )
+		WHERE rnum between #{param2} and #{param3}
+ 	</select>
+ 	
+ 	<resultMap type="sale" id="callProfileSaleListResult">
+	 	<id column="product_idx" property="product_idx"/>
+	 	<result column="seller_id" property="seller_id"/>
+	 	<result column="sale_subject" property="sale_subject"/>
+	 	<result column="price" property="price"/>
+	 	<result column="code_num" property="code_num"/>
+	 	<association property="saleFileDto" javaType="saleFile">
+	 		<result column="newFileName" property="newFileName"/>
+	 		<result column="file_idx" property="file_idx"/>
+	 	</association>
+	</resultMap>
+ 
+ 	
+ 	<!-- 판매내역 상품사진 -->
+ 	<select id="salelistFile" resultType="saleFile">
+ 		SELECT * FROM sale_file WHERE newFileName=#{param1}
+ 	</select>
+ 	
+ 	<!-- 판매내역리스트 -->
+ 	<select id="salelistlist" resultType="sale">
+ 		SELECT product_idx,sale_subject,code_num,reg_date FROM sale WHERE sale_subject=#{param1}
+ 	</select>
+ 	
+ 	<!-- 거래상세보기(sale) -->
+ 	<select id="saledetail" resultType="sale">
+ 		SELECT sale_subject,price FROM sale WHERE sale_subject=#{param1}
+ 	</select>
+ 	
+ 	<!-- 거래상세보기(trading) -->
+ 	<select id="tradedetail" resultType="trading">
+ 		SELECT trade_state,seller_id,buyer_id,trade_type,trade_time,tracking_number,trade_start_date,trade_end_date,seller_manner,buyer_manner
+ 		FROM trading WHERE trade_state=#{param1}
+ 	</select>
+ 	
+ 	<!-- 프로필 sale 개수 -->
+ 	<select id="countAllSale" resultType="INTEGER">
+ 		SELECT count(product_idx) FROM sale WHERE seller_id=#{param1}
+ 	</select>
+ 	
+ 	<!-- 프로필 review 개수 -->
+ 	<select id="countAllReview" resultType="INTEGER">
+ 		SELECT count(review_idx) FROM review WHERE member_id=#{param1}
+ 	</select>
+ 	
+ 	<!-- 판매내역 리스트 : 전체수, 리스트 -->
+ 	<select id="allCountMySaleList" resultType="int">
+ 		SELECT count(product_idx) FROM sale 
+ 			WHERE seller_id=#{param1} AND isdelete=0
+			      <if test='!param2.equals("")'>AND code_num IN(#{param2})</if>	
+ 	</select>
+ 	<resultMap type="sale" id="callMySaleList">
+	 	<id column="product_idx" property="product_idx"/>
+	 	<result column="seller_id" property="seller_id"/>
+	 	<result column="sale_subject" property="sale_subject"/>
+	 	<result column="code_num" property="code_num"/>
+	 	<result column="reg_date" property="reg_date"/>
+	 	<association property="saleFileDto" javaType="saleFile">
+	 		<result column="newFileName" property="newFileName"/>
+	 		<result column="file_idx" property="file_idx"/>
+	 	</association>
+	</resultMap>
+	<select id="mySaleList" resultMap="callMySaleList">
+		select *
+			from (
+			    select ROW_NUMBER() OVER(ORDER BY product_idx DESC) AS rnum, seller_id, product_idx,sale_subject, code_num,reg_date, file_idx, newfilename, rnumFile
+			    FROM (
+			        SELECT  s.seller_id, s.product_idx, s.sale_subject, s.code_num, s.reg_date, sf.file_idx, sf.newfilename, RANK() OVER (PARTITION BY sf.product_idx ORDER BY sf.file_idx) rnumFile
+			        FROM sale s, sale_file sf
+			        WHERE s.product_idx = sf.product_idx AND s.isdelete=0 
+			        	<if test='!param2.equals("")'>AND code_num IN(#{param2})</if>	
+			        )
+			    WHERE rnumFile=1 AND seller_id=#{param1}
+			    )
+			WHERE rnum between #{param3} and #{param4}
+	</select>
+	
+	<!-- 거래 상세보기 -->
+	<!-- 1.해당 판매글idx로 최근 거래 idx 추출 -->
+	<select id="findTradeIdxThisProduct" resultType="INTEGER">
+		SELECT trade_idx FROM
+		    (SELECT product_idx, trade_idx, ROW_NUMBER() OVER(ORDER BY trade_idx DESC) AS rnum FROM trading 
+		    WHERE product_idx=#{param1})
+		    WHERE rnum=1
+	</select>
+	<!-- 2.해당 판매글idx로 판매글 정보 추출 -->
+	<select id="findSaleInfoThis" resultType="sale">
+		SELECT  s.seller_id, s.product_idx, s.sale_subject,s.price, s.code_num
+		        FROM sale s
+		        WHERE s.product_idx=#{param1}
+	</select>
+	<!-- 3.판매글 사진 첫번째꺼 가지고 가기 -->
+	<select id="findSaleFileFirstThis" resultType="saleFile">
+		SELECT * FROM
+		    (SELECT  sf.file_idx, sf.newfilename, RANK() OVER (ORDER BY sf.file_idx ASC) rnumFile
+		        FROM sale_file sf
+		        WHERE sf.product_idx=#{param1}
+		    ) WHERE rnumFile=1
+	</select>
+	<!-- 4.해당 거래 idx로 거래 정보 추출 -->
+	<select id="findTradeInfoThis" resultType="trading">
+		SELECT trade_idx, seller_id, buyer_id, trade_type, trade_time, package_company, tracking_Number, trade_state, seller_manner, buyer_manner, trade_start_date, trade_end_date
+    		FROM trading WHERE trade_idx=#{param1}
+	</select>
+	
+	<!-- 회원차단하기 -->
+	<insert id="blockMember">
+		INSERT INTO block (block_idx, target_id, member_id) values (seq_block.nextval, #{param2}, #{param1})
+	</insert>
+	
+	<!-- 회원차단해제하기 -->
+	<delete id="unblockMember">
+		DELETE FROM block WHERE member_id=#{param1} AND target_id=#{param2}
+	</delete>
+	
+	<!-- 차단유저인지 확인하기 -->
+	<select id="confirmMyBlocking" resultType="INTEGER">
+		SELECT count(block_idx) FROM block WHERE member_id=#{param1} AND target_id=#{param2}
+	</select>
+	
+	
+	<!-- 매너질문 가져오기 -->
+ 	<select id="getMannerQuestion" resultType="mannerQuestion">
+ 		SELECT * FROM mannerQuestion WHERE trade_type=#{param1} AND target=#{param2} ORDER BY look_order ASC
+ 	</select>
+ 	
+ 	<!-- 판매자 매너평가 -->
+ 	<update id="setTrading">
+ 		UPDATE trading SET buyer_manner=1 WHERE trade_idx=#{param}
+ 	</update>
+ 		<!-- 판매자 아이디추출 -->
+ 	<select id="getMannerSellerId" resultType="String">
+ 		SELECT seller_id FROM trading WHERE trade_idx=#{param}
+ 	</select>
+ 		<!-- 평가 -->
+	 <update id="setMemberManner">
+ 		UPDATE member SET manner_score=manner_score+#{param2}, manner_cnt=manner_cnt+1 WHERE member_id = #{param1}
+ 	</update>
+ 	<select id="setMemberMannerCnt" resultType="int">
+ 		SELECT manner_cnt FROM member WHERE member_id=#{param}
+ 	</select>
+ 	<select id="getmannerScore" resultType="int">
+ 		SELECT manner_score FROM member WHERE member_id=#{param}
+ 	</select>
+ 	<update id="setMannerPercent">
+ 		UPDATE member SET manner_percent = #{param2} WHERE member_id = #{param1}
+ 	</update>
+ 	
+ 		<!-- 구매자 아이디 추출 -->
+ 	<select id="getMannerBuyerId" resultType="String">
+ 		SELECT buyer_id FROM trading WHERE trade_idx=#{param}
+ 	</select>
+ 	
+ 	<!-- 운송장번호입력 -->
+ 	<update id="registTrackingNum">
+ 		UPDATE trading SET package_company=#{param2}, tracking_number=#{param3} WHERE trade_idx=#{param1}
+ 	</update>
+ 	
+ 	
+ </mapper>
